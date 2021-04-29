@@ -7,6 +7,7 @@ class Scraper():
     def __init__(self):
         self.CACHE_LENGTH = 5000 #How many comments before flushing cache from internal memory to disk
         self.cache = []
+        self.lock = threading.lock() # Race Condition avoidance
         if not os.path.exists(os.getcwd()+"\\Archive\\NewEmoji\\"):
             os.makedirs(os.getcwd()+"\\Archive\\NewEmoji\\")
         subreddit = reddit.subreddit("all") #Targeting every comment, due to rate limit uses, will most likely miss up to 20%
@@ -35,13 +36,14 @@ class Scraper():
         
         """
         if self.has_emoji(comment.body) and comment.author.name!="AutoModerator" and not comment.subreddit.over18:
-            self.cache.append([comment.body,"https://reddit.com"+comment.permalink])
+            self.cache.append([comment.body,"https://reddit.com"+comment.permalink]) #Natively threadsafe
+            self.lock.acquire() # Locking
             if (len(self.cache)==self.CACHE_LENGTH):
                 timenow = datetime.datetime.utcnow().strftime("%b %d %y %H-%M-%S%Z")
                 with open(os.getcwd()+"\\Archive\\NewEmoji\\"+timenow+".json","a+") as jsonf:
                     json.dump(self.cache,jsonf)
                 self.cache=[]
-
+            self.lock.release() # Release lock either after cache is dumped or check that cache does not need to be flushed to disk
 
 
 
